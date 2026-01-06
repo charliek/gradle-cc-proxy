@@ -176,8 +176,7 @@ function main(): void {
   // Check if we're in Claude Code environment
   if (!isClaudeCodeEnvironment()) {
     console.log("[proxy] Not in Claude Code environment.");
-    console.log("[proxy] Set HTTP_PROXY with the Claude Code proxy to use this tool.");
-    console.log("[proxy] Expected format: http://user:jwt@21.0.0.93:15004");
+    console.log("[proxy] This tool requires CLAUDE_CODE_REMOTE=true to be set.");
     process.exit(0);
   }
 

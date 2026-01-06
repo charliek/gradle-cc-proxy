@@ -68,45 +68,34 @@ describe("isClaudeCodeEnvironment", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    process.env.HTTP_PROXY = undefined;
-    process.env.http_proxy = undefined;
-    process.env.HTTPS_PROXY = undefined;
-    process.env.https_proxy = undefined;
+    process.env.CLAUDE_CODE_REMOTE = undefined;
   });
 
   afterEach(() => {
     process.env = originalEnv;
   });
 
-  test("returns true when HTTP_PROXY contains Claude Code host", () => {
-    process.env.HTTP_PROXY = "http://user:token@21.0.0.93:15004";
+  test("returns true when CLAUDE_CODE_REMOTE is 'true'", () => {
+    process.env.CLAUDE_CODE_REMOTE = "true";
     expect(isClaudeCodeEnvironment()).toBe(true);
   });
 
-  test("returns true when HTTPS_PROXY contains Claude Code host", () => {
-    process.env.HTTPS_PROXY = "http://user:token@21.0.0.93:15004";
-    expect(isClaudeCodeEnvironment()).toBe(true);
-  });
-
-  test("returns true when lowercase http_proxy contains Claude Code host", () => {
-    process.env.http_proxy = "http://user:token@21.0.0.93:15004";
-    expect(isClaudeCodeEnvironment()).toBe(true);
-  });
-
-  test("returns true for all known Claude Code proxy hosts", () => {
-    const hosts = ["21.0.0.93", "21.0.0.95", "21.0.0.107"];
-    for (const host of hosts) {
-      process.env.HTTP_PROXY = `http://user:token@${host}:15004`;
-      expect(isClaudeCodeEnvironment()).toBe(true);
-    }
-  });
-
-  test("returns false when proxy is different host", () => {
-    process.env.HTTP_PROXY = "http://user:token@proxy.example.com:8080";
+  test("returns false when CLAUDE_CODE_REMOTE is not set", () => {
     expect(isClaudeCodeEnvironment()).toBe(false);
   });
 
-  test("returns false when no proxy is set", () => {
+  test("returns false when CLAUDE_CODE_REMOTE is 'false'", () => {
+    process.env.CLAUDE_CODE_REMOTE = "false";
+    expect(isClaudeCodeEnvironment()).toBe(false);
+  });
+
+  test("returns false when CLAUDE_CODE_REMOTE is empty string", () => {
+    process.env.CLAUDE_CODE_REMOTE = "";
+    expect(isClaudeCodeEnvironment()).toBe(false);
+  });
+
+  test("returns false when CLAUDE_CODE_REMOTE is '1'", () => {
+    process.env.CLAUDE_CODE_REMOTE = "1";
     expect(isClaudeCodeEnvironment()).toBe(false);
   });
 });

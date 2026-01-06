@@ -28,8 +28,8 @@ if ! command -v bun &> /dev/null; then
 fi
 
 # Check environment
-if [[ -z "$HTTP_PROXY" ]] && [[ -z "$HTTPS_PROXY" ]]; then
-    echo "[gradle-proxy] No proxy environment - skipping"
+if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
+    echo "[gradle-proxy] Not in Claude Code environment - skipping"
     exit 0
 fi
 

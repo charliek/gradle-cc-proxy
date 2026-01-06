@@ -15,18 +15,11 @@ export interface ProxyConfig {
   verbose: boolean;
 }
 
-/** Known Claude Code environment proxy hosts */
-const CLAUDE_CODE_PROXY_HOSTS = ["21.0.0.93", "21.0.0.95", "21.0.0.107"];
-
 /**
  * Check if we're running in the Claude Code environment.
  */
 export function isClaudeCodeEnvironment(): boolean {
-  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy || "";
-  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy || "";
-  return CLAUDE_CODE_PROXY_HOSTS.some(
-    (host) => httpProxy.includes(host) || httpsProxy.includes(host)
-  );
+  return process.env.CLAUDE_CODE_REMOTE === "true";
 }
 
 /**

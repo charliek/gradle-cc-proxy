@@ -94,6 +94,7 @@ cd ~/your-project
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `CLAUDE_CODE_REMOTE` | Must be `true` for proxy to run | Required |
 | `HTTP_PROXY` | Upstream proxy URL with JWT | Required |
 | `HTTPS_PROXY` | Alternative to HTTP_PROXY | - |
 | `PROXY_LOCAL_PORT` | Local proxy port | 8899 |
@@ -138,11 +139,12 @@ cat ~/.local/gradle-cc-proxy/proxy.log
 
 ### Still Getting 401 Errors
 
-1. Verify HTTP_PROXY is set correctly:
+1. Verify environment is set correctly:
    ```bash
+   echo $CLAUDE_CODE_REMOTE
+   # Should be: true
    echo $HTTP_PROXY
-   # Should be: http://user:jwt_<token>@21.0.0.X:15004
-   # Where X is 93, 95, or 107 (known Claude Code proxy hosts)
+   # Should be: http://user:jwt_<token>@<proxy-host>:<port>
    # The proxy automatically strips the 'jwt_' prefix
    ```
 
@@ -260,8 +262,9 @@ bun run ci
 ### Running Locally
 
 ```bash
-# Set up a mock proxy URL for testing
-export HTTP_PROXY="http://user:fake-jwt-token-for-testing-purposes-only@21.0.0.93:15004"
+# Set up environment for testing
+export CLAUDE_CODE_REMOTE="true"
+export HTTP_PROXY="http://user:fake-jwt-token-for-testing-purposes-only@proxy.example.com:15004"
 
 # Run with verbose logging
 VERBOSE=true bun run src/proxy.ts
