@@ -66,3 +66,49 @@ The proxy automatically strips the `jwt_` prefix from tokens in the environment 
 - `HTTP_PROXY` / `HTTPS_PROXY` - Upstream proxy URL with JWT (format: `http://user:jwt_<token>@host:port`)
 - `PROXY_LOCAL_PORT` - Local proxy port (default: 8899)
 - `VERBOSE` - Enable verbose logging (true/1)
+
+## Remote Environment Testing
+
+This project is the gradle-cc-proxy itself - we're developing and testing the proxy, not just using it. The session hook only sets up the development environment; Claude manages proxy lifecycle and testing during coding sessions for better visibility.
+
+### Testing Workflow
+
+When working in the Claude Code remote environment:
+
+1. **Start the proxy** (when ready to test Gradle integration):
+   ```bash
+   ./scripts/start-proxy.sh
+   ```
+
+2. **Run unit tests** (no proxy needed):
+   ```bash
+   bun test
+   ```
+
+3. **Run full CI checks**:
+   ```bash
+   bun run ci
+   ```
+
+4. **Verify Gradle integration** (requires proxy running):
+   ```bash
+   ./scripts/verify.sh
+   ```
+   This runs a real Gradle build in `test-build/` through the proxy.
+
+5. **Stop the proxy** (when done testing):
+   ```bash
+   ./scripts/stop-proxy.sh
+   ```
+
+6. **Check proxy logs** (for debugging):
+   ```bash
+   cat proxy.log
+   ```
+
+### Key Difference from Consumer Projects
+
+Consumer projects using gradle-cc-proxy will have their session hooks automatically start the proxy. This project intentionally does NOT auto-start the proxy because:
+- We need visibility into proxy behavior during development
+- We may be testing changes that require proxy restarts
+- The verify script handles starting the proxy when needed

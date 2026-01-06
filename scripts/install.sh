@@ -3,8 +3,13 @@
 # One-time installation script for gradle-cc-proxy.
 # Run this once in your Claude Code environment.
 #
+# This script:
+# 1. Verifies Bun is installed
+# 2. Installs project dependencies
+# 3. Configures ~/.gradle/gradle.properties with proxy settings
+#
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -15,15 +20,15 @@ echo "=== Gradle Proxy Adapter Installation ==="
 echo ""
 
 # Check if we're in Claude Code environment
-if [[ -z "$HTTP_PROXY" ]] && [[ -z "$HTTPS_PROXY" ]]; then
+if [[ -z "${HTTP_PROXY:-}" ]] && [[ -z "${HTTPS_PROXY:-}" ]]; then
     echo "Warning: No HTTP_PROXY or HTTPS_PROXY environment variable found."
-    echo "This tool is designed for the Claude Code environment."
+    echo "This tool is designed for the Claude Code remote environment."
     echo ""
 fi
 
 # Check for Bun
 if ! command -v bun &> /dev/null; then
-    echo "Error: Bun is not installed."
+    echo "ERROR: Bun is not installed."
     echo "Please install Bun first: https://bun.sh"
     exit 1
 fi
@@ -31,10 +36,13 @@ fi
 echo "Bun found: $(bun --version)"
 echo ""
 
-# Install dependencies
+# Install dependencies with timeout
 echo "Installing dependencies..."
 cd "$PROJECT_DIR"
-bun install
+if ! timeout 60 bun install; then
+    echo "ERROR: Failed to install dependencies (timeout or error)" >&2
+    exit 1
+fi
 echo ""
 
 # Create .gradle directory if it doesn't exist

@@ -76,6 +76,10 @@ Add to your project's startup hook:
 
 The proxy starts in the background and all Gradle builds will use it automatically via `~/.gradle/gradle.properties`.
 
+For a complete guide on setting up Claude Code remote environments for JVM/Gradle projects, including session hooks, SDKMAN, and this proxy, see:
+
+**[Claude Code Remote Setup Guide](docs/claude-remote-setup-guide.md)**
+
 ### Manual Usage
 
 ```bash
@@ -215,6 +219,12 @@ gradle-cc-proxy/
 │   ├── start-proxy.sh     # Background startup
 │   ├── stop-proxy.sh      # Stop the proxy
 │   └── verify.sh          # Verification test
+├── .claude/
+│   ├── settings.json      # Claude Code configuration
+│   └── hooks/
+│       └── claude-remote-session-hook.sh  # Session startup script
+├── docs/
+│   └── claude-remote-setup-guide.md  # Setup guide for JVM projects
 ├── test-build/            # Test Gradle project
 │   ├── build.gradle.kts
 │   └── settings.gradle.kts

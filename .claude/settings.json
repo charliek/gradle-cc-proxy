@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.claude/hooks/claude-remote-session-hook.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "PATH": "$HOME/.local/bin:$HOME/.bun/bin:$PATH",
+    "BUN_VERSION": "1.3.4"
+  }
+}

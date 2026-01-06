@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 #
 # Start the Gradle proxy in the background.
-# Designed to be called from Claude Code startup hooks.
+# Designed to be called from Claude Code startup hooks or manually.
 #
+# The proxy listens on localhost:8899 and forwards requests to the
+# upstream JWT-authenticated proxy with proper authorization headers.
+#
+
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -23,18 +28,18 @@ fi
 
 # Check for Bun
 if ! command -v bun &> /dev/null; then
-    echo "[gradle-proxy] Error: Bun not found"
+    echo "[gradle-proxy] ERROR: Bun not found" >&2
     exit 1
 fi
 
 # Check environment
-if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
-    echo "[gradle-proxy] Not in Claude Code environment - skipping"
+if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
+    echo "[gradle-proxy] Not in Claude Code remote environment (CLAUDE_CODE_REMOTE != true) - skipping"
     exit 0
 fi
 
 # Start proxy in background
-echo "[gradle-proxy] Starting proxy..."
+echo "[gradle-proxy] Starting proxy on localhost:${PROXY_LOCAL_PORT:-8899}..."
 cd "$PROJECT_DIR"
 nohup bun run src/proxy.ts > "$LOG_FILE" 2>&1 &
 PROXY_PID=$!
@@ -42,13 +47,30 @@ PROXY_PID=$!
 # Save PID
 echo "$PROXY_PID" > "$PID_FILE"
 
-# Wait a moment and check if it started
-sleep 1
+# Wait and verify startup (with timeout)
+STARTUP_TIMEOUT=5
+for i in $(seq 1 $STARTUP_TIMEOUT); do
+    if kill -0 "$PROXY_PID" 2>/dev/null; then
+        # Process is running, check if it's actually listening
+        if [ "$i" -ge 2 ]; then
+            echo "[gradle-proxy] Started (PID $PROXY_PID)"
+            echo "[gradle-proxy] Logs: $LOG_FILE"
+            exit 0
+        fi
+    else
+        echo "[gradle-proxy] ERROR: Failed to start - check $LOG_FILE" >&2
+        rm -f "$PID_FILE"
+        exit 1
+    fi
+    sleep 1
+done
+
+# Final check
 if kill -0 "$PROXY_PID" 2>/dev/null; then
     echo "[gradle-proxy] Started (PID $PROXY_PID)"
     echo "[gradle-proxy] Logs: $LOG_FILE"
 else
-    echo "[gradle-proxy] Failed to start - check $LOG_FILE"
+    echo "[gradle-proxy] ERROR: Failed to start - check $LOG_FILE" >&2
     rm -f "$PID_FILE"
     exit 1
 fi
