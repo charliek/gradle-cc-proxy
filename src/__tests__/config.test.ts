@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { isClaudeCodeEnvironment, loadConfig, parseProxyUrl, sanitizeToken } from "../config";
+import {
+  isClaudeCodeEnvironment,
+  isValidJwtFormat,
+  loadConfig,
+  parseProxyUrl,
+  sanitizeToken,
+} from "../config";
 
 describe("parseProxyUrl", () => {
   test("parses full proxy URL with credentials", () => {
@@ -85,6 +91,14 @@ describe("isClaudeCodeEnvironment", () => {
   test("returns true when lowercase http_proxy contains Claude Code host", () => {
     process.env.http_proxy = "http://user:token@21.0.0.93:15004";
     expect(isClaudeCodeEnvironment()).toBe(true);
+  });
+
+  test("returns true for all known Claude Code proxy hosts", () => {
+    const hosts = ["21.0.0.93", "21.0.0.95", "21.0.0.107"];
+    for (const host of hosts) {
+      process.env.HTTP_PROXY = `http://user:token@${host}:15004`;
+      expect(isClaudeCodeEnvironment()).toBe(true);
+    }
   });
 
   test("returns false when proxy is different host", () => {
@@ -183,5 +197,45 @@ describe("sanitizeToken", () => {
   test("shows prefix for 21 char tokens", () => {
     const result = sanitizeToken("123456789012345678901");
     expect(result).toBe("12345678901234567890...");
+  });
+});
+
+describe("isValidJwtFormat", () => {
+  test("returns true for valid JWT format", () => {
+    const validJwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+    expect(isValidJwtFormat(validJwt)).toBe(true);
+  });
+
+  test("returns true for JWT with underscores and hyphens", () => {
+    const jwt = "aB-9_.cD-8_.eF-7_";
+    expect(isValidJwtFormat(jwt)).toBe(true);
+  });
+
+  test("returns false for token with only 2 parts", () => {
+    expect(isValidJwtFormat("part1.part2")).toBe(false);
+  });
+
+  test("returns false for token with 4 parts", () => {
+    expect(isValidJwtFormat("part1.part2.part3.part4")).toBe(false);
+  });
+
+  test("returns false for token with empty parts", () => {
+    expect(isValidJwtFormat("..")).toBe(false);
+    expect(isValidJwtFormat("header..signature")).toBe(false);
+  });
+
+  test("returns false for token with invalid characters", () => {
+    expect(isValidJwtFormat("he@der.pay!oad.sign@ture")).toBe(false);
+    expect(isValidJwtFormat("header.payload with spaces.signature")).toBe(false);
+  });
+
+  test("returns false for empty string", () => {
+    expect(isValidJwtFormat("")).toBe(false);
+  });
+
+  test("returns false for non-JWT strings", () => {
+    expect(isValidJwtFormat("not-a-jwt")).toBe(false);
+    expect(isValidJwtFormat("jwt_prefix_should_be_stripped")).toBe(false);
   });
 });

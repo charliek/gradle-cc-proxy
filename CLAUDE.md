@@ -55,7 +55,7 @@ The proxy runs on localhost:8899 (configurable via `PROXY_LOCAL_PORT`) and handl
 
 ### Environment Detection
 
-The proxy only runs when it detects the Claude Code environment by checking if `HTTP_PROXY` or `HTTPS_PROXY` contains one of the known proxy hosts: `21.0.0.93` or `21.0.0.107`.
+The proxy only runs when it detects the Claude Code environment by checking if `HTTP_PROXY` or `HTTPS_PROXY` contains one of the known proxy hosts: `21.0.0.93`, `21.0.0.95`, or `21.0.0.107`.
 
 ### JWT Token Handling
 

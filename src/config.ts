@@ -16,7 +16,7 @@ export interface ProxyConfig {
 }
 
 /** Known Claude Code environment proxy hosts */
-const CLAUDE_CODE_PROXY_HOSTS = ["21.0.0.93", "21.0.0.107"];
+const CLAUDE_CODE_PROXY_HOSTS = ["21.0.0.93", "21.0.0.95", "21.0.0.107"];
 
 /**
  * Check if we're running in the Claude Code environment.
@@ -88,6 +88,11 @@ export function loadConfig(): ProxyConfig {
     );
   }
 
+  // Validate JWT format
+  if (!isValidJwtFormat(jwtToken)) {
+    console.warn("Warning: Token does not match JWT format (expected: header.payload.signature)");
+  }
+
   return {
     localPort: Number.parseInt(process.env.PROXY_LOCAL_PORT || "8899", 10),
     upstreamHost: parsed.host,
@@ -95,6 +100,22 @@ export function loadConfig(): ProxyConfig {
     jwtToken: jwtToken,
     verbose: process.env.VERBOSE === "true" || process.env.VERBOSE === "1",
   };
+}
+
+/**
+ * Validate JWT token format.
+ * JWTs should have three base64-encoded parts separated by dots.
+ */
+export function isValidJwtFormat(token: string): boolean {
+  // JWT format: header.payload.signature
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  // Each part should be non-empty and base64-like (alphanumeric, -, _)
+  const base64Pattern = /^[A-Za-z0-9_-]+$/;
+  return parts.every((part) => part.length > 0 && base64Pattern.test(part));
 }
 
 /**
