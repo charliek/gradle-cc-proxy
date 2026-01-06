@@ -1,0 +1,33 @@
+{
+  "name": "gradle-cc-proxy",
+  "version": "1.0.0",
+  "description": "Local HTTP proxy adapter for Gradle in JWT-authenticated proxy environments",
+  "type": "module",
+  "main": "src/proxy.ts",
+  "scripts": {
+    "start": "bun run src/proxy.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "format": "biome format --write src/",
+    "typecheck": "tsc --noEmit",
+    "ci": "bun run typecheck && bun run lint && bun test",
+    "install-proxy": "bash scripts/install.sh",
+    "verify": "bash scripts/verify.sh"
+  },
+  "keywords": [
+    "gradle",
+    "proxy",
+    "jwt",
+    "authentication",
+    "claude-code"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "bun-types": "latest",
+    "typescript": "^5.7.0"
+  }
+}

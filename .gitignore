@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Gradle
+.gradle/
+test-build/.gradle/
+test-build/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+proxy.log
+
+# PID files
+*.pid
+proxy.pid
+
+# Environment
+.env
+.env.local
