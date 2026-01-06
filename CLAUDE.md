@@ -55,10 +55,14 @@ The proxy runs on localhost:8899 (configurable via `PROXY_LOCAL_PORT`) and handl
 
 ### Environment Detection
 
-The proxy only runs when it detects the Claude Code environment by checking if `HTTP_PROXY` or `HTTPS_PROXY` contains the known proxy host `21.0.0.93`.
+The proxy only runs when it detects the Claude Code environment by checking if `HTTP_PROXY` or `HTTPS_PROXY` contains one of the known proxy hosts: `21.0.0.93` or `21.0.0.107`.
+
+### JWT Token Handling
+
+The proxy automatically strips the `jwt_` prefix from tokens in the environment variable (format: `http://user:jwt_<token>@host:port`) before using them in Bearer authentication headers.
 
 ### Configuration via Environment Variables
 
-- `HTTP_PROXY` / `HTTPS_PROXY` - Upstream proxy URL with JWT (format: `http://user:jwt@host:port`)
+- `HTTP_PROXY` / `HTTPS_PROXY` - Upstream proxy URL with JWT (format: `http://user:jwt_<token>@host:port`)
 - `PROXY_LOCAL_PORT` - Local proxy port (default: 8899)
 - `VERBOSE` - Enable verbose logging (true/1)

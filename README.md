@@ -141,7 +141,8 @@ cat ~/.local/gradle-cc-proxy/proxy.log
 1. Verify HTTP_PROXY is set correctly:
    ```bash
    echo $HTTP_PROXY
-   # Should be: http://user:jwt@21.0.0.93:15004
+   # Should be: http://user:jwt_<token>@21.0.0.93:15004 or @21.0.0.107:15004
+   # The proxy automatically strips the 'jwt_' prefix
    ```
 
 2. Check proxy is running:
@@ -154,6 +155,15 @@ cat ~/.local/gradle-cc-proxy/proxy.log
    ```bash
    cat ~/.gradle/gradle.properties | grep proxy
    ```
+
+### Getting 503 Service Unavailable Errors
+
+External Maven repositories (plugins.gradle.org, repo.maven.apache.org) may occasionally return 503 errors due to rate limiting or temporary unavailability. This is not a proxy issue. The proxy logs will show successful tunnel establishment even when the remote server returns 503.
+
+To verify the proxy is working:
+1. Check proxy logs for "Tunnel established" messages
+2. Check `~/.gradle/caches` for successfully downloaded JARs
+3. Retry the build after a brief wait
 
 ### Connection Timeouts
 
