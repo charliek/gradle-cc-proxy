@@ -141,7 +141,9 @@ cat ~/.local/gradle-cc-proxy/proxy.log
 1. Verify HTTP_PROXY is set correctly:
    ```bash
    echo $HTTP_PROXY
-   # Should be: http://user:jwt@21.0.0.93:15004
+   # Should be: http://user:jwt_<token>@21.0.0.X:15004
+   # Where X is 93, 95, or 107 (known Claude Code proxy hosts)
+   # The proxy automatically strips the 'jwt_' prefix
    ```
 
 2. Check proxy is running:
@@ -154,6 +156,31 @@ cat ~/.local/gradle-cc-proxy/proxy.log
    ```bash
    cat ~/.gradle/gradle.properties | grep proxy
    ```
+
+### Getting 503 Service Unavailable Errors
+
+External Maven repositories (plugins.gradle.org, repo.maven.apache.org) may occasionally return 503 errors due to rate limiting or temporary unavailability. This is not a proxy issue. The proxy logs will show successful tunnel establishment even when the remote server returns 503.
+
+To verify the proxy is working:
+1. Check proxy logs for "Tunnel established" messages
+2. Check `~/.gradle/caches` for successfully downloaded JARs
+3. Retry the build after a brief wait
+
+### Missing Gradle Wrapper JAR
+
+If you see errors about missing `gradle-wrapper.jar`:
+
+1. **Using system Gradle**: If you have Gradle installed globally, use `gradle wrapper` to generate the wrapper files
+2. **No Gradle installed**: Download the wrapper files from a working project or use the Gradle wrapper from this repository's test-build directory
+3. **Verification**: Check that `gradle/wrapper/gradle-wrapper.jar` exists in your project
+
+```bash
+# Generate wrapper if you have Gradle installed
+gradle wrapper
+
+# Or copy from test-build
+cp test-build/gradle/wrapper/gradle-wrapper.jar your-project/gradle/wrapper/
+```
 
 ### Connection Timeouts
 

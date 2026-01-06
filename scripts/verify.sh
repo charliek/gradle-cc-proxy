@@ -47,8 +47,19 @@ cd "$TEST_BUILD_DIR"
 # Clean any previous build
 rm -rf build .gradle
 
+# Determine which gradle to use
+if command -v gradle &> /dev/null; then
+    GRADLE_CMD="gradle"
+else
+    GRADLE_CMD="./gradlew"
+    chmod +x gradlew
+fi
+
+echo "Using: $GRADLE_CMD"
+echo ""
+
 # Run the build
-if gradle build --no-daemon; then
+if $GRADLE_CMD build --no-daemon; then
     echo ""
     echo "=== Verification PASSED ==="
     echo ""
@@ -65,5 +76,6 @@ else
     echo "  - HTTP_PROXY environment variable not set correctly"
     echo "  - JWT token expired or invalid"
     echo "  - Upstream proxy not reachable"
+    echo "  - External repository temporarily unavailable (503 errors)"
     exit 1
 fi
