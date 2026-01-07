@@ -13,7 +13,7 @@ export interface ProxyConfig {
   jwtToken: string;
   /** Enable verbose logging */
   verbose: boolean;
-  /** Maximum concurrent connections (0 = unlimited) */
+  /** Maximum concurrent connections (default: 3, 0 = unlimited/disabled) */
   maxConcurrent: number;
 }
 
@@ -148,8 +148,8 @@ export function loadConfig(): ProxyConfig {
     );
   }
 
-  // Parse max concurrent connections (0 = unlimited)
-  const maxConcurrent = Number.parseInt(process.env.PROXY_MAX_CONCURRENT || "0", 10);
+  // Parse max concurrent connections (default: 3, set to 0 to disable throttling)
+  const maxConcurrent = Number.parseInt(process.env.PROXY_MAX_CONCURRENT || "3", 10);
 
   return {
     localPort,

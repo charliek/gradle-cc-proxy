@@ -10,7 +10,8 @@
 #   ./start-proxy.sh [options]
 #
 # Options:
-#   --max-concurrent N   Limit concurrent connections (default: unlimited)
+#   --max-concurrent N   Limit concurrent connections (default: 3)
+#   --no-throttle        Disable connection throttling (unlimited connections)
 #   --verbose            Enable verbose logging
 #   --help               Show this help message
 #
@@ -33,11 +34,16 @@ while [[ $# -gt 0 ]]; do
             export VERBOSE="true"
             shift
             ;;
+        --no-throttle)
+            export PROXY_MAX_CONCURRENT="0"
+            shift
+            ;;
         --help)
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --max-concurrent N   Limit concurrent connections (default: unlimited)"
+            echo "  --max-concurrent N   Limit concurrent connections (default: 3)"
+            echo "  --no-throttle        Disable connection throttling (unlimited)"
             echo "  --verbose            Enable verbose logging"
             echo "  --help               Show this help message"
             exit 0
@@ -74,9 +80,12 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 # Start proxy in background
-THROTTLE_INFO=""
-if [ -n "${PROXY_MAX_CONCURRENT:-}" ]; then
-    THROTTLE_INFO=" (max ${PROXY_MAX_CONCURRENT} concurrent)"
+# Default is now 3 concurrent, show throttle status
+MAX_CONC="${PROXY_MAX_CONCURRENT:-3}"
+if [ "$MAX_CONC" = "0" ]; then
+    THROTTLE_INFO=" (throttling disabled)"
+else
+    THROTTLE_INFO=" (max ${MAX_CONC} concurrent)"
 fi
 echo "[gradle-proxy] Starting proxy on localhost:${PROXY_LOCAL_PORT:-8899}...${THROTTLE_INFO}"
 cd "$PROJECT_DIR"

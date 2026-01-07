@@ -157,10 +157,20 @@ describe("loadConfig", () => {
     expect(config.verbose).toBe(true);
   });
 
-  test("defaults maxConcurrent to 0 (unlimited)", () => {
+  test("defaults maxConcurrent to 3", () => {
     const jwt =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
     process.env.HTTP_PROXY = `http://user:${jwt}@21.0.0.93:15004`;
+
+    const config = loadConfig();
+    expect(config.maxConcurrent).toBe(3);
+  });
+
+  test("allows disabling throttle by setting PROXY_MAX_CONCURRENT to 0", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
+    process.env.HTTP_PROXY = `http://user:${jwt}@21.0.0.93:15004`;
+    process.env.PROXY_MAX_CONCURRENT = "0";
 
     const config = loadConfig();
     expect(config.maxConcurrent).toBe(0);
