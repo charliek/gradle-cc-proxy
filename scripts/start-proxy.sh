@@ -55,6 +55,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Update Gradle maxConnections based on throttle setting
+GRADLE_PROPS_FILE="$HOME/.gradle/gradle.properties"
+MAX_CONC="${PROXY_MAX_CONCURRENT:-3}"
+
+if [ "$MAX_CONC" != "0" ] && [ -f "$GRADLE_PROPS_FILE" ]; then
+    GRADLE_MAX_CONN=$((MAX_CONC - 1))
+    # Ensure at least 1 connection
+    [ "$GRADLE_MAX_CONN" -lt 1 ] && GRADLE_MAX_CONN=1
+
+    PROP_NAME="systemProp.org.gradle.internal.http.maxConnections"
+
+    if grep -q "^${PROP_NAME}=" "$GRADLE_PROPS_FILE" 2>/dev/null; then
+        # Update existing value
+        sed -i.bak "s/^${PROP_NAME}=.*/${PROP_NAME}=${GRADLE_MAX_CONN}/" "$GRADLE_PROPS_FILE"
+        rm -f "${GRADLE_PROPS_FILE}.bak"
+    else
+        # Add new property
+        echo "${PROP_NAME}=${GRADLE_MAX_CONN}" >> "$GRADLE_PROPS_FILE"
+    fi
+    echo "[gradle-proxy] Set Gradle maxConnections=${GRADLE_MAX_CONN}"
+fi
+
 # Check if already running
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
