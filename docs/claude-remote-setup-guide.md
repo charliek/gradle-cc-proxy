@@ -193,9 +193,13 @@ if [ ! -d "$HOME/.sdkman" ]; then
 fi
 
 # Source SDKMAN
+# Note: SDKMAN's init script uses [ -z "$VAR" ] checks which fail under 'set -u'
+# when variables are unset. We temporarily disable -u to allow initialization.
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     export SDKMAN_DIR="$HOME/.sdkman"
+    set +u  # Temporarily allow unset variables for SDKMAN
     source "$HOME/.sdkman/bin/sdkman-init.sh"
+    set -u  # Re-enable strict mode
 fi
 
 # -----------------------------------------------------------------------------
@@ -204,11 +208,20 @@ fi
 if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
     JAVA_VERSION=$(grep "^java=" "$PROJECT_ROOT/.sdkmanrc" | cut -d'=' -f2)
     if [ -n "$JAVA_VERSION" ]; then
+        set +u  # SDKMAN commands also use unset variable checks
         if ! sdk list java 2>/dev/null | grep -q "$JAVA_VERSION.*installed"; then
             echo "Installing Java $JAVA_VERSION..."
             timeout 120 sdk install java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
         fi
         sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+        sdk default java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+        set -u  # Re-enable strict mode
+
+        # Export JAVA_HOME for Gradle
+        if [ -d "$HOME/.sdkman/candidates/java/current" ]; then
+            export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
+            export PATH="$JAVA_HOME/bin:$PATH"
+        fi
     fi
 fi
 
@@ -375,6 +388,21 @@ fi
    ```bash
    cat ~/.gradle/gradle.properties | grep proxy
    ```
+
+### SDKMAN "Unbound Variable" Error
+
+If you see errors like `SDKMAN_CANDIDATES_API: unbound variable`, this is because
+SDKMAN's scripts use `[ -z "$VAR" ]` checks which fail under bash's `set -u` option.
+
+**Fix:** Temporarily disable `set -u` when sourcing SDKMAN:
+
+```bash
+set +u  # Temporarily allow unset variables
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+set -u  # Re-enable strict mode
+```
+
+Also wrap SDKMAN commands (`sdk install`, `sdk use`, etc.) with `set +u`/`set -u`.
 
 ### SDKMAN Not Finding Java
 

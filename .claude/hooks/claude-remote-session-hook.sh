@@ -176,10 +176,15 @@ if [ ! -d "$HOME/.sdkman" ]; then
 fi
 
 # Source SDKMAN
+# Note: SDKMAN's init script checks variables like $SDKMAN_CANDIDATES_API with
+# [ -z "$VAR" ] syntax, which fails under 'set -u' when unset. We temporarily
+# disable -u to allow SDKMAN to initialize properly.
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     export SDKMAN_DIR="$HOME/.sdkman"
+    set +u  # Temporarily allow unset variables (SDKMAN uses [ -z "$VAR" ] checks)
     # shellcheck source=/dev/null
     source "$HOME/.sdkman/bin/sdkman-init.sh"
+    set -u  # Re-enable strict unset variable checking
 fi
 
 # -----------------------------------------------------------------------------
@@ -191,6 +196,9 @@ if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
     # Read Java version from .sdkmanrc
     JAVA_VERSION=$(grep "^java=" "$PROJECT_ROOT/.sdkmanrc" | cut -d'=' -f2)
     if [ -n "$JAVA_VERSION" ]; then
+        # Disable -u for SDKMAN commands (they use unset variable checks internally)
+        set +u
+
         # Check if this version is already installed
         if ! sdk list java 2>/dev/null | grep -q "$JAVA_VERSION.*installed"; then
             echo "Installing Java $JAVA_VERSION via SDKMAN..."
@@ -202,8 +210,18 @@ if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
             fi
         fi
 
-        # Use the version
+        # Use the version and set as default
         sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+        sdk default java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+
+        set -u  # Re-enable strict mode
+
+        # Export JAVA_HOME to ensure Gradle uses this Java version
+        if [ -d "$HOME/.sdkman/candidates/java/current" ]; then
+            export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            echo "JAVA_HOME set to $JAVA_HOME"
+        fi
     fi
 fi
 
