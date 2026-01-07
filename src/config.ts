@@ -13,6 +13,8 @@ export interface ProxyConfig {
   jwtToken: string;
   /** Enable verbose logging */
   verbose: boolean;
+  /** Maximum concurrent connections (0 = unlimited) */
+  maxConcurrent: number;
 }
 
 /**
@@ -146,12 +148,16 @@ export function loadConfig(): ProxyConfig {
     );
   }
 
+  // Parse max concurrent connections (0 = unlimited)
+  const maxConcurrent = Number.parseInt(process.env.PROXY_MAX_CONCURRENT || "0", 10);
+
   return {
     localPort,
     upstreamHost: parsed.host,
     upstreamPort: parsed.port,
     jwtToken: jwtToken,
     verbose: process.env.VERBOSE === "true" || process.env.VERBOSE === "1",
+    maxConcurrent: maxConcurrent >= 0 ? maxConcurrent : 0,
   };
 }
 

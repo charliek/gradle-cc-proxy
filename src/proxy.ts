@@ -18,10 +18,12 @@ import {
 import type { Socket } from "node:net";
 import { buildProxyAuthHeader } from "./auth";
 import { type ProxyConfig, isClaudeCodeEnvironment, loadConfig, sanitizeToken } from "./config";
+import { ConnectionLimiter } from "./throttle";
 import { handleConnect, parseConnectRequest } from "./tunnel";
 
 let config: ProxyConfig;
 let server: Server;
+let limiter: ConnectionLimiter;
 
 /**
  * Handle HTTP requests (non-CONNECT).
@@ -132,12 +134,22 @@ function handleConnectRequest(req: IncomingMessage, clientSocket: Socket, head: 
     return;
   }
 
-  // Pass the head buffer to be forwarded after tunnel is established
-  handleConnect(clientSocket, parsed.host, parsed.port, config, head).catch((err) => {
-    if (config.verbose) {
-      console.error(`[connect] Error: ${err.message}`);
-    }
-  });
+  // Acquire a connection slot (may queue if at limit)
+  limiter
+    .acquire()
+    .then(() => {
+      // Pass the head buffer to be forwarded after tunnel is established
+      return handleConnect(clientSocket, parsed.host, parsed.port, config, head);
+    })
+    .catch((err) => {
+      if (config.verbose) {
+        console.error(`[connect] Error: ${err.message}`);
+      }
+    })
+    .finally(() => {
+      // Always release the slot when the connection closes
+      limiter.release();
+    });
 }
 
 /**
@@ -160,6 +172,9 @@ function startServer(): void {
     console.log(`[proxy] Gradle proxy started on localhost:${config.localPort}`);
     console.log(`[proxy] Upstream: ${config.upstreamHost}:${config.upstreamPort}`);
     console.log(`[proxy] Token: ${sanitizeToken(config.jwtToken)}`);
+    if (config.maxConcurrent > 0) {
+      console.log(`[proxy] Throttle: max ${config.maxConcurrent} concurrent connections`);
+    }
     if (config.verbose) {
       console.log("[proxy] Verbose logging enabled");
     }
@@ -209,6 +224,9 @@ function main(): void {
     console.error(`[proxy] Configuration error: ${err}`);
     process.exit(1);
   }
+
+  // Initialize connection limiter
+  limiter = new ConnectionLimiter(config.maxConcurrent, config.verbose);
 
   // Set up signal handlers
   process.on("SIGINT", shutdown);

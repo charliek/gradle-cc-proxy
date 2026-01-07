@@ -6,6 +6,14 @@
 # The proxy listens on localhost:8899 and forwards requests to the
 # upstream JWT-authenticated proxy with proper authorization headers.
 #
+# Usage:
+#   ./start-proxy.sh [options]
+#
+# Options:
+#   --max-concurrent N   Limit concurrent connections (default: unlimited)
+#   --verbose            Enable verbose logging
+#   --help               Show this help message
+#
 
 set -uo pipefail
 
@@ -13,6 +21,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PID_FILE="$PROJECT_DIR/proxy.pid"
 LOG_FILE="$PROJECT_DIR/proxy.log"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --max-concurrent)
+            export PROXY_MAX_CONCURRENT="$2"
+            shift 2
+            ;;
+        --verbose)
+            export VERBOSE="true"
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [options]"
+            echo ""
+            echo "Options:"
+            echo "  --max-concurrent N   Limit concurrent connections (default: unlimited)"
+            echo "  --verbose            Enable verbose logging"
+            echo "  --help               Show this help message"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
+done
 
 # Check if already running
 if [[ -f "$PID_FILE" ]]; then
@@ -39,7 +74,11 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 # Start proxy in background
-echo "[gradle-proxy] Starting proxy on localhost:${PROXY_LOCAL_PORT:-8899}..."
+THROTTLE_INFO=""
+if [ -n "${PROXY_MAX_CONCURRENT:-}" ]; then
+    THROTTLE_INFO=" (max ${PROXY_MAX_CONCURRENT} concurrent)"
+fi
+echo "[gradle-proxy] Starting proxy on localhost:${PROXY_LOCAL_PORT:-8899}...${THROTTLE_INFO}"
 cd "$PROJECT_DIR"
 nohup bun run src/proxy.ts > "$LOG_FILE" 2>&1 &
 PROXY_PID=$!

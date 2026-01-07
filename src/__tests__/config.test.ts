@@ -116,6 +116,7 @@ describe("loadConfig", () => {
     process.env.GLOBAL_AGENT_HTTP_PROXY = undefined;
     process.env.GLOBAL_AGENT_HTTPS_PROXY = undefined;
     process.env.PROXY_LOCAL_PORT = undefined;
+    process.env.PROXY_MAX_CONCURRENT = undefined;
     process.env.VERBOSE = undefined;
   });
 
@@ -154,6 +155,35 @@ describe("loadConfig", () => {
 
     const config = loadConfig();
     expect(config.verbose).toBe(true);
+  });
+
+  test("defaults maxConcurrent to 0 (unlimited)", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
+    process.env.HTTP_PROXY = `http://user:${jwt}@21.0.0.93:15004`;
+
+    const config = loadConfig();
+    expect(config.maxConcurrent).toBe(0);
+  });
+
+  test("parses PROXY_MAX_CONCURRENT from environment", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
+    process.env.HTTP_PROXY = `http://user:${jwt}@21.0.0.93:15004`;
+    process.env.PROXY_MAX_CONCURRENT = "5";
+
+    const config = loadConfig();
+    expect(config.maxConcurrent).toBe(5);
+  });
+
+  test("treats negative maxConcurrent as 0", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
+    process.env.HTTP_PROXY = `http://user:${jwt}@21.0.0.93:15004`;
+    process.env.PROXY_MAX_CONCURRENT = "-5";
+
+    const config = loadConfig();
+    expect(config.maxConcurrent).toBe(0);
   });
 
   test("throws error when no proxy is set", () => {
