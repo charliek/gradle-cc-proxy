@@ -8,7 +8,13 @@
  * 4. Only runs in Claude Code environment (auto-detect)
  */
 
-import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
+import {
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+  createServer,
+  request as httpRequest,
+} from "node:http";
 import type { Socket } from "node:net";
 import { buildProxyAuthHeader } from "./auth";
 import { type ProxyConfig, isClaudeCodeEnvironment, loadConfig, sanitizeToken } from "./config";
@@ -32,9 +38,8 @@ async function handleHttpRequest(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  if (config.verbose) {
-    console.log(`[http] ${req.method} ${url}`);
-  }
+  // Always log requests for debugging (brief format)
+  console.log(`[http] ${req.method} ${url}`);
 
   try {
     // Validate the URL is absolute (required for proxy requests)
@@ -47,8 +52,6 @@ async function handleHttpRequest(req: IncomingMessage, res: ServerResponse): Pro
       return;
     }
 
-    // Build request to upstream proxy
-    const proxyUrl = `http://${config.upstreamHost}:${config.upstreamPort}`;
     const authHeader = buildProxyAuthHeader(config.jwtToken);
 
     // Collect request body if any
@@ -59,38 +62,55 @@ async function handleHttpRequest(req: IncomingMessage, res: ServerResponse): Pro
     const body = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
 
     // Forward headers, adding proxy auth
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string | string[]> = {};
     for (const [key, value] of Object.entries(req.headers)) {
       if (value && key.toLowerCase() !== "proxy-authorization") {
-        headers[key] = Array.isArray(value) ? value.join(", ") : value;
+        headers[key] = value;
       }
     }
     headers["Proxy-Authorization"] = authHeader;
 
     if (config.verbose) {
-      console.log(`[http] Forwarding to ${targetUrl.host} via ${proxyUrl}`);
+      console.log(
+        `[http] Forwarding to ${targetUrl.host} via ${config.upstreamHost}:${config.upstreamPort}`
+      );
     }
 
-    // Make request through upstream proxy using fetch
-    const response = await fetch(url, {
+    // Make request through upstream proxy using http.request
+    // For HTTP proxying, we send the request TO the proxy but with the FULL URL in the path
+    const proxyReq = httpRequest({
       method: req.method,
-      headers,
-      body,
-      proxy: proxyUrl,
+      host: config.upstreamHost,
+      port: config.upstreamPort,
+      path: url, // Full URL for proxy requests
+      headers: headers,
     });
 
-    // Forward response back to client
-    res.writeHead(response.status, Object.fromEntries(response.headers));
-
-    if (response.body) {
-      const reader = response.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(value);
+    proxyReq.on("error", (err) => {
+      if (config.verbose) {
+        console.error(`[http] Proxy request error: ${err.message}`);
       }
+      res.writeHead(502);
+      res.end("Bad Gateway");
+    });
+
+    proxyReq.on("response", (proxyRes) => {
+      // Always log responses for debugging
+      console.log(`[http] ${proxyRes.statusCode} ${req.method} ${targetUrl.host}`);
+
+      // Forward response headers and status
+      res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+
+      // Pipe response body
+      proxyRes.pipe(res);
+    });
+
+    // Send request body if present
+    if (body) {
+      proxyReq.write(body);
     }
-    res.end();
+
+    proxyReq.end();
   } catch (err) {
     if (config.verbose) {
       console.error(`[http] Error forwarding request: ${err}`);

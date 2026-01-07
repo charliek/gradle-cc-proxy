@@ -31,11 +31,12 @@ export async function handleConnect(
 ): Promise<void> {
   const { upstreamHost, upstreamPort, jwtToken, verbose } = config;
 
-  if (verbose) {
-    console.log(`[tunnel] CONNECT ${targetHost}:${targetPort}`);
-  }
+  // Always log CONNECT requests for debugging
+  console.log(`[tunnel] CONNECT ${targetHost}:${targetPort}`);
 
-  logAuthAttempt(upstreamHost, upstreamPort, jwtToken, verbose);
+  if (verbose) {
+    logAuthAttempt(upstreamHost, upstreamPort, jwtToken, verbose);
+  }
 
   // Connect to upstream proxy
   const upstreamSocket = new Socket();
@@ -104,9 +105,8 @@ export async function handleConnect(
 
           if (statusCode === 200) {
             tunnelEstablished = true;
-            if (verbose) {
-              console.log(`[tunnel] Tunnel established to ${targetHost}:${targetPort}`);
-            }
+            // Always log successful tunnels
+            console.log(`[tunnel] ✓ ${targetHost}:${targetPort}`);
 
             // Send 200 to client
             clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -126,8 +126,10 @@ export async function handleConnect(
               upstreamSocket.write(head);
             }
           } else {
+            // Always log tunnel failures
+            console.error(`[tunnel] ✗ ${targetHost}:${targetPort} - ${statusCode}`);
             if (verbose) {
-              console.error(`[tunnel] Upstream rejected CONNECT: ${statusLine}`);
+              console.error(`[tunnel] Full response: ${statusLine}`);
             }
             // Forward the error response to client
             clientSocket.write(`HTTP/1.1 ${statusCode} Proxy Error\r\n\r\n`);
