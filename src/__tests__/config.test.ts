@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  findUpstreamProxy,
   isClaudeCodeEnvironment,
+  isLocalhostProxy,
   isValidJwtFormat,
   loadConfig,
   parseProxyUrl,
@@ -155,7 +157,7 @@ describe("loadConfig", () => {
   });
 
   test("throws error when no proxy is set", () => {
-    expect(() => loadConfig()).toThrow("No proxy environment variable found");
+    expect(() => loadConfig()).toThrow("No valid upstream proxy found");
   });
 
   test("throws error when proxy URL is invalid", () => {
@@ -190,6 +192,80 @@ describe("sanitizeToken", () => {
   test("shows prefix for 21 char tokens", () => {
     const result = sanitizeToken("123456789012345678901");
     expect(result).toBe("12345678901234567890...");
+  });
+});
+
+describe("isLocalhostProxy", () => {
+  test("returns true for localhost on same port", () => {
+    expect(isLocalhostProxy("http://localhost:8899", 8899)).toBe(true);
+  });
+
+  test("returns true for 127.0.0.1 on same port", () => {
+    expect(isLocalhostProxy("http://127.0.0.1:8899", 8899)).toBe(true);
+  });
+
+  test("returns false for localhost on different port", () => {
+    expect(isLocalhostProxy("http://localhost:9000", 8899)).toBe(false);
+  });
+
+  test("returns false for remote host on same port", () => {
+    expect(isLocalhostProxy("http://proxy.example.com:8899", 8899)).toBe(false);
+  });
+
+  test("returns false for invalid URL", () => {
+    expect(isLocalhostProxy("not-a-url", 8899)).toBe(false);
+  });
+});
+
+describe("findUpstreamProxy", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv };
+    process.env.HTTP_PROXY = undefined;
+    process.env.http_proxy = undefined;
+    process.env.HTTPS_PROXY = undefined;
+    process.env.https_proxy = undefined;
+    process.env.UPSTREAM_HTTP_PROXY = undefined;
+    process.env.UPSTREAM_HTTPS_PROXY = undefined;
+    process.env.GLOBAL_AGENT_HTTP_PROXY = undefined;
+    process.env.GLOBAL_AGENT_HTTPS_PROXY = undefined;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  test("prioritizes UPSTREAM_HTTP_PROXY", () => {
+    process.env.UPSTREAM_HTTP_PROXY = "http://user:pass@upstream:8080";
+    process.env.HTTP_PROXY = "http://user:pass@other:8080";
+    const result = findUpstreamProxy(8899);
+    expect(result?.source).toBe("UPSTREAM_HTTP_PROXY");
+  });
+
+  test("falls back to GLOBAL_AGENT_HTTP_PROXY", () => {
+    process.env.GLOBAL_AGENT_HTTP_PROXY = "http://user:pass@global:8080";
+    process.env.HTTP_PROXY = "http://user:pass@other:8080";
+    const result = findUpstreamProxy(8899);
+    expect(result?.source).toBe("GLOBAL_AGENT_HTTP_PROXY");
+  });
+
+  test("falls back to HTTP_PROXY", () => {
+    process.env.HTTP_PROXY = "http://user:pass@proxy:8080";
+    const result = findUpstreamProxy(8899);
+    expect(result?.source).toBe("HTTP_PROXY");
+  });
+
+  test("skips localhost proxy to avoid circular reference", () => {
+    process.env.HTTP_PROXY = "http://user:pass@localhost:8899";
+    process.env.GLOBAL_AGENT_HTTP_PROXY = "http://user:pass@real:8080";
+    const result = findUpstreamProxy(8899);
+    expect(result?.source).toBe("GLOBAL_AGENT_HTTP_PROXY");
+  });
+
+  test("returns null when no valid proxy found", () => {
+    const result = findUpstreamProxy(8899);
+    expect(result).toBeNull();
   });
 });
 
