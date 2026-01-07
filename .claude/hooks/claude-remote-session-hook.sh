@@ -178,8 +178,12 @@ fi
 # Source SDKMAN
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     export SDKMAN_DIR="$HOME/.sdkman"
+    # Temporarily disable unbound variable check for SDKMAN init
+    # SDKMAN's init script checks variables that may not be set yet
+    set +u
     # shellcheck source=/dev/null
     source "$HOME/.sdkman/bin/sdkman-init.sh"
+    set -u
 fi
 
 # -----------------------------------------------------------------------------
@@ -204,6 +208,12 @@ if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
 
         # Use the version
         sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+
+        # Ensure JAVA_HOME is set and exported for Gradle
+        if [ -d "$HOME/.sdkman/candidates/java/$JAVA_VERSION" ]; then
+            export JAVA_HOME="$HOME/.sdkman/candidates/java/$JAVA_VERSION"
+            export PATH="$JAVA_HOME/bin:$PATH"
+        fi
     fi
 fi
 
