@@ -13,6 +13,8 @@ export interface ProxyConfig {
   jwtToken: string;
   /** Enable verbose logging */
   verbose: boolean;
+  /** Maximum concurrent connections (default: 3, 0 = unlimited/disabled) */
+  maxConcurrent: number;
 }
 
 /**
@@ -46,32 +48,84 @@ export function parseProxyUrl(proxyUrl: string): {
 }
 
 /**
+ * Check if a proxy URL points to localhost (potential circular reference).
+ */
+export function isLocalhostProxy(proxyUrl: string, localPort: number): boolean {
+  const parsed = parseProxyUrl(proxyUrl);
+  if (!parsed) return false;
+
+  const isLocalhost =
+    parsed.host === "localhost" ||
+    parsed.host === "127.0.0.1" ||
+    parsed.host === "::1" ||
+    parsed.host === "[::1]";
+
+  return isLocalhost && parsed.port === localPort;
+}
+
+/**
+ * Find the upstream proxy URL from environment variables.
+ * Returns the URL and the source variable name for diagnostics.
+ */
+export function findUpstreamProxy(localPort: number): { url: string; source: string } | null {
+  // Priority order for finding upstream proxy
+  // 1. UPSTREAM_* variables (explicitly set by session hook)
+  // 2. GLOBAL_AGENT_* variables (Claude Code's internal proxy config)
+  // 3. HTTP_PROXY/HTTPS_PROXY (standard proxy environment variables)
+  const candidates: Array<{ name: string; value: string | undefined }> = [
+    { name: "UPSTREAM_HTTP_PROXY", value: process.env.UPSTREAM_HTTP_PROXY },
+    { name: "UPSTREAM_HTTPS_PROXY", value: process.env.UPSTREAM_HTTPS_PROXY },
+    { name: "GLOBAL_AGENT_HTTP_PROXY", value: process.env.GLOBAL_AGENT_HTTP_PROXY },
+    { name: "GLOBAL_AGENT_HTTPS_PROXY", value: process.env.GLOBAL_AGENT_HTTPS_PROXY },
+    { name: "HTTP_PROXY", value: process.env.HTTP_PROXY },
+    { name: "http_proxy", value: process.env.http_proxy },
+    { name: "HTTPS_PROXY", value: process.env.HTTPS_PROXY },
+    { name: "https_proxy", value: process.env.https_proxy },
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate.value) {
+      // Skip if this would create a circular proxy reference
+      if (isLocalhostProxy(candidate.value, localPort)) {
+        console.warn(
+          `[config] Skipping ${candidate.name} (points to localhost:${localPort}, would cause loop)`
+        );
+        continue;
+      }
+      return { url: candidate.value, source: candidate.name };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Load configuration from environment variables.
  */
 export function loadConfig(): ProxyConfig {
-  // Check for upstream proxy first (set by session hook when HTTP_PROXY points to localhost)
-  // Then fall back to GLOBAL_AGENT variables or regular proxy environment variables
-  const httpProxy =
-    process.env.UPSTREAM_HTTP_PROXY ||
-    process.env.UPSTREAM_HTTPS_PROXY ||
-    process.env.GLOBAL_AGENT_HTTP_PROXY ||
-    process.env.GLOBAL_AGENT_HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    process.env.HTTPS_PROXY ||
-    process.env.https_proxy;
+  const localPort = Number.parseInt(process.env.PROXY_LOCAL_PORT || "8899", 10);
 
-  if (!httpProxy) {
-    throw new Error("No proxy environment variable found. Set HTTP_PROXY or HTTPS_PROXY.");
+  // Find upstream proxy, avoiding circular references
+  const upstream = findUpstreamProxy(localPort);
+
+  if (!upstream) {
+    throw new Error(
+      "No valid upstream proxy found. Expected UPSTREAM_HTTP_PROXY, GLOBAL_AGENT_HTTP_PROXY, or HTTP_PROXY to be set with a non-localhost URL."
+    );
   }
 
-  const parsed = parseProxyUrl(httpProxy);
+  // Log which source we're using (helpful for debugging)
+  console.log(`[config] Using upstream from ${upstream.source}`);
+
+  const parsed = parseProxyUrl(upstream.url);
   if (!parsed) {
-    throw new Error(`Failed to parse proxy URL: ${httpProxy}`);
+    throw new Error(`Failed to parse proxy URL from ${upstream.source}: ${upstream.url}`);
   }
 
   if (!parsed.password) {
-    throw new Error("No JWT token found in proxy URL. Expected format: http://user:jwt@host:port");
+    throw new Error(
+      `No JWT token found in ${upstream.source}. Expected format: http://user:jwt@host:port`
+    );
   }
 
   // Strip 'jwt_' prefix if present (Claude Code environment format)
@@ -83,21 +137,27 @@ export function loadConfig(): ProxyConfig {
   // Validate token has reasonable length (JWTs are typically 100+ chars)
   if (jwtToken.length < 50) {
     console.warn(
-      `Warning: JWT token seems short (${jwtToken.length} chars). Expected 100+ for JWT.`
+      `[config] Warning: JWT token seems short (${jwtToken.length} chars). Expected 100+ for JWT.`
     );
   }
 
   // Validate JWT format
   if (!isValidJwtFormat(jwtToken)) {
-    console.warn("Warning: Token does not match JWT format (expected: header.payload.signature)");
+    console.warn(
+      "[config] Warning: Token does not match JWT format (expected: header.payload.signature)"
+    );
   }
 
+  // Parse max concurrent connections (default: 3, set to 0 to disable throttling)
+  const maxConcurrent = Number.parseInt(process.env.PROXY_MAX_CONCURRENT || "3", 10);
+
   return {
-    localPort: Number.parseInt(process.env.PROXY_LOCAL_PORT || "8899", 10),
+    localPort,
     upstreamHost: parsed.host,
     upstreamPort: parsed.port,
     jwtToken: jwtToken,
     verbose: process.env.VERBOSE === "true" || process.env.VERBOSE === "1",
+    maxConcurrent: maxConcurrent >= 0 ? maxConcurrent : 0,
   };
 }
 

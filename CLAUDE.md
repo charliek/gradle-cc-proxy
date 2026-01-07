@@ -52,6 +52,7 @@ The proxy runs on localhost:8899 (configurable via `PROXY_LOCAL_PORT`) and handl
 - `src/config.ts` - Configuration from environment variables, proxy URL parsing
 - `src/auth.ts` - JWT Bearer token header construction
 - `src/tunnel.ts` - CONNECT tunneling implementation with bidirectional piping
+- `src/throttle.ts` - Connection throttling to prevent upstream 503 errors
 
 ### Environment Detection
 
@@ -65,6 +66,7 @@ The proxy automatically strips the `jwt_` prefix from tokens in the environment 
 
 - `HTTP_PROXY` / `HTTPS_PROXY` - Upstream proxy URL with JWT (format: `http://user:jwt_<token>@host:port`)
 - `PROXY_LOCAL_PORT` - Local proxy port (default: 8899)
+- `PROXY_MAX_CONCURRENT` - Max concurrent connections, 0=unlimited (default: 3)
 - `VERBOSE` - Enable verbose logging (true/1)
 
 ## Remote Environment Testing
@@ -77,7 +79,10 @@ When working in the Claude Code remote environment:
 
 1. **Start the proxy** (when ready to test Gradle integration):
    ```bash
-   ./scripts/start-proxy.sh
+   ./scripts/start-proxy.sh                    # Default: max 3 concurrent connections
+   ./scripts/start-proxy.sh --max-concurrent 5 # Custom limit
+   ./scripts/start-proxy.sh --no-throttle      # Disable throttling
+   ./scripts/start-proxy.sh --verbose          # Enable verbose logging
    ```
 
 2. **Run unit tests** (no proxy needed):

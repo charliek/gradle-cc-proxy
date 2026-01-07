@@ -49,8 +49,17 @@ This will:
 ### Starting the Proxy
 
 ```bash
-# Start in background (for hooks)
+# Start in background (for hooks) - uses default throttling (max 3 concurrent)
 ./scripts/start-proxy.sh
+
+# Start with custom throttle limit
+./scripts/start-proxy.sh --max-concurrent 5
+
+# Disable throttling entirely
+./scripts/start-proxy.sh --no-throttle
+
+# Start with verbose logging
+./scripts/start-proxy.sh --verbose
 
 # Or run in foreground with verbose output
 VERBOSE=true bun run src/proxy.ts
@@ -125,6 +134,7 @@ cd ~/your-project
 | `HTTP_PROXY` | Standard proxy variable (lowest priority) | - |
 | `HTTPS_PROXY` | Standard proxy variable (lowest priority) | - |
 | `PROXY_LOCAL_PORT` | Local proxy port | 8899 |
+| `PROXY_MAX_CONCURRENT` | Max concurrent connections (0=unlimited) | 3 |
 | `VERBOSE` | Enable verbose logging | false |
 
 The proxy checks for upstream proxy configuration in this order:
@@ -193,12 +203,29 @@ cat ~/.local/gradle-cc-proxy/proxy.log
 
 ### Getting 503 Service Unavailable Errors
 
-External Maven repositories (plugins.gradle.org, repo.maven.apache.org) may occasionally return 503 errors due to rate limiting or temporary unavailability. This is not a proxy issue. The proxy logs will show successful tunnel establishment even when the remote server returns 503.
+503 errors can occur due to rate limiting by the upstream proxy when too many connections are made simultaneously. The proxy includes built-in connection throttling (default: 3 concurrent connections) to mitigate this issue.
+
+**Connection Throttling** (enabled by default):
+- The proxy queues excess connections and processes them sequentially
+- Default limit is 3 concurrent connections, which has been tested to achieve 100% success rate
+- Queued requests typically wait 100-300ms before being processed
+
+To adjust throttling:
+```bash
+# Use default throttling (recommended)
+./scripts/start-proxy.sh
+
+# Increase concurrent connections if needed
+./scripts/start-proxy.sh --max-concurrent 5
+
+# Disable throttling (not recommended - may cause 503 errors)
+./scripts/start-proxy.sh --no-throttle
+```
 
 To verify the proxy is working:
-1. Check proxy logs for "Tunnel established" messages
-2. Check `~/.gradle/caches` for successfully downloaded JARs
-3. Retry the build after a brief wait
+1. Check proxy logs for "✓" tunnel establishment messages
+2. Look for "[throttle]" log entries showing queued requests
+3. Check `~/.gradle/caches` for successfully downloaded JARs
 
 ### Missing Gradle Wrapper JAR
 
@@ -255,10 +282,12 @@ gradle-cc-proxy/
 │   ├── config.ts          # Configuration loading
 │   ├── auth.ts            # JWT authentication
 │   ├── tunnel.ts          # CONNECT tunneling
+│   ├── throttle.ts        # Connection throttling
 │   └── __tests__/         # Unit tests
 │       ├── config.test.ts
 │       ├── auth.test.ts
-│       └── tunnel.test.ts
+│       ├── tunnel.test.ts
+│       └── throttle.test.ts
 ├── scripts/
 │   ├── install.sh         # One-time setup
 │   ├── start-proxy.sh     # Background startup

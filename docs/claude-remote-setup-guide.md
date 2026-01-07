@@ -89,6 +89,28 @@ if [ -x "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh" ]; then
 fi
 ```
 
+### Proxy Options
+
+The proxy includes connection throttling to prevent 503 errors from upstream rate limiting:
+
+```bash
+# Default: max 3 concurrent connections (recommended)
+./scripts/start-proxy.sh
+
+# Custom concurrent connection limit
+./scripts/start-proxy.sh --max-concurrent 5
+
+# Disable throttling (not recommended - may cause 503 errors)
+./scripts/start-proxy.sh --no-throttle
+
+# Enable verbose logging
+./scripts/start-proxy.sh --verbose
+```
+
+You can also set these via environment variables before calling the script:
+- `PROXY_MAX_CONCURRENT=3` - Max concurrent connections (0=unlimited)
+- `VERBOSE=true` - Enable verbose logging
+
 This configuration:
 1. Preserves the upstream proxy URL in `UPSTREAM_HTTP_PROXY` for the proxy adapter to use
 2. Redirects all Gradle traffic (via environment variables) to localhost:8899
@@ -346,6 +368,29 @@ fi
 3. Verify Gradle properties:
    ```bash
    cat ~/.gradle/gradle.properties | grep proxy
+   ```
+
+### Getting 503 Errors
+
+503 errors typically indicate upstream rate limiting. The proxy includes connection throttling (default: max 3 concurrent) to prevent this.
+
+1. Check if throttling is active in logs:
+   ```bash
+   grep throttle ~/.local/gradle-cc-proxy/proxy.log
+   ```
+
+2. If you disabled throttling, re-enable it:
+   ```bash
+   # Stop the proxy
+   ~/.local/gradle-cc-proxy/scripts/stop-proxy.sh
+   # Restart with default throttling
+   ~/.local/gradle-cc-proxy/scripts/start-proxy.sh
+   ```
+
+3. Try reducing concurrent connections:
+   ```bash
+   ~/.local/gradle-cc-proxy/scripts/stop-proxy.sh
+   ~/.local/gradle-cc-proxy/scripts/start-proxy.sh --max-concurrent 2
    ```
 
 ### Hook Not Running
