@@ -21,7 +21,6 @@
 #   These are generally stable across projects and include:
 #   - GitHub CLI (gh) - for PR/issue workflows
 #   - Runtime tools (Bun, Node, Python, etc.) - as needed by the project
-#   - SDKMAN + Java - for JVM projects
 #   - Any other tools referenced in CLAUDE.md commands
 #
 #   PHASE 2: Project Dependencies
@@ -47,7 +46,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 # Ensure standard system paths are in PATH (hooks may run with minimal environment)
-export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.sdkman/candidates/java/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 # Store the project root for navigation (must be done before any cd commands)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -160,62 +159,6 @@ else
     fi
 fi
 
-# -----------------------------------------------------------------------------
-# SDKMAN Setup
-# -----------------------------------------------------------------------------
-# Required for: Managing Java versions via .sdkmanrc
-
-if [ ! -d "$HOME/.sdkman" ]; then
-    echo "Installing SDKMAN..."
-    if ! curl -fsSL --connect-timeout 10 --max-time 60 "https://get.sdkman.io?rcupdate=false" | bash > /dev/null 2>&1; then
-        echo "ERROR: Failed to install SDKMAN" >&2
-        echo "If running in a restricted environment, enable full network access or add get.sdkman.io to your custom environment's allowed domains." >&2
-        exit 1
-    fi
-    echo "SDKMAN installed"
-fi
-
-# Source SDKMAN
-if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
-    export SDKMAN_DIR="$HOME/.sdkman"
-    # Temporarily disable unbound variable check for SDKMAN init
-    # SDKMAN's init script checks variables that may not be set yet
-    set +u
-    # shellcheck source=/dev/null
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-    set -u
-fi
-
-# -----------------------------------------------------------------------------
-# Java Setup via SDKMAN
-# -----------------------------------------------------------------------------
-# Install Java version from .sdkmanrc if it exists
-
-if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
-    # Read Java version from .sdkmanrc
-    JAVA_VERSION=$(grep "^java=" "$PROJECT_ROOT/.sdkmanrc" | cut -d'=' -f2)
-    if [ -n "$JAVA_VERSION" ]; then
-        # Check if this version is already installed
-        if ! sdk list java 2>/dev/null | grep -q "$JAVA_VERSION.*installed"; then
-            echo "Installing Java $JAVA_VERSION via SDKMAN..."
-            if ! timeout 120 sdk install java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1; then
-                echo "WARNING: Failed to install Java $JAVA_VERSION via SDKMAN" >&2
-                echo "You may need to run 'sdk install java $JAVA_VERSION' manually" >&2
-            else
-                echo "Java $JAVA_VERSION installed"
-            fi
-        fi
-
-        # Use the version
-        sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
-
-        # Ensure JAVA_HOME is set and exported for Gradle
-        if [ -d "$HOME/.sdkman/candidates/java/$JAVA_VERSION" ]; then
-            export JAVA_HOME="$HOME/.sdkman/candidates/java/$JAVA_VERSION"
-            export PATH="$JAVA_HOME/bin:$PATH"
-        fi
-    fi
-fi
 
 # =============================================================================
 # PHASE 2: Project Dependencies
