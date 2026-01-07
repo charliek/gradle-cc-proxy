@@ -77,6 +77,29 @@ if [ "$MAX_CONC" != "0" ] && [ -f "$GRADLE_PROPS_FILE" ]; then
     echo "[gradle-proxy] Set Gradle maxConnections=${GRADLE_MAX_CONN}"
 fi
 
+# Set static Gradle properties for proxy environment
+if [ -f "$GRADLE_PROPS_FILE" ]; then
+    # Disable parallel builds
+    PROP_PARALLEL="org.gradle.parallel"
+    if grep -q "^${PROP_PARALLEL}=" "$GRADLE_PROPS_FILE" 2>/dev/null; then
+        sed -i.bak "s/^${PROP_PARALLEL}=.*/${PROP_PARALLEL}=false/" "$GRADLE_PROPS_FILE"
+        rm -f "${GRADLE_PROPS_FILE}.bak"
+    else
+        echo "${PROP_PARALLEL}=false" >> "$GRADLE_PROPS_FILE"
+    fi
+
+    # Limit worker threads
+    PROP_WORKERS="org.gradle.workers.max"
+    if grep -q "^${PROP_WORKERS}=" "$GRADLE_PROPS_FILE" 2>/dev/null; then
+        sed -i.bak "s/^${PROP_WORKERS}=.*/${PROP_WORKERS}=1/" "$GRADLE_PROPS_FILE"
+        rm -f "${GRADLE_PROPS_FILE}.bak"
+    else
+        echo "${PROP_WORKERS}=1" >> "$GRADLE_PROPS_FILE"
+    fi
+
+    echo "[gradle-proxy] Set Gradle parallel=false, workers.max=1"
+fi
+
 # Check if already running
 if [[ -f "$PID_FILE" ]]; then
     PID=$(cat "$PID_FILE")
