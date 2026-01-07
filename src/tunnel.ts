@@ -43,7 +43,7 @@ export async function handleConnect(
 
   return new Promise((resolve, reject) => {
     let tunnelEstablished = false;
-    let responseBuffer = "";
+    const responseBufferChunks: Buffer[] = [];
 
     upstreamSocket.on("error", (err) => {
       if (verbose) {
@@ -94,12 +94,17 @@ export async function handleConnect(
     upstreamSocket.on("data", (data) => {
       if (!tunnelEstablished) {
         // Still waiting for upstream's CONNECT response
-        responseBuffer += data.toString();
+        // Accumulate as Buffer to preserve binary data
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        responseBufferChunks.push(chunk);
+        const responseBuffer = Buffer.concat(responseBufferChunks);
 
-        // Check if we have a complete response
-        const headerEnd = responseBuffer.indexOf("\r\n\r\n");
-        if (headerEnd !== -1) {
-          const statusLine = responseBuffer.split("\r\n")[0];
+        // Find header end - headers are ASCII, so safe to search as string
+        const headerEndIndex = responseBuffer.indexOf("\r\n\r\n");
+        if (headerEndIndex !== -1) {
+          // Extract headers as string (they're ASCII)
+          const headers = responseBuffer.subarray(0, headerEndIndex).toString("ascii");
+          const statusLine = headers.split("\r\n")[0];
           const statusMatch = statusLine.match(/HTTP\/\d\.\d\s+(\d+)/);
           const statusCode = statusMatch ? Number.parseInt(statusMatch[1], 10) : 0;
 
@@ -111,20 +116,22 @@ export async function handleConnect(
             // Send 200 to client
             clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
 
-            // Now pipe everything bidirectionally
-            upstreamSocket.pipe(clientSocket);
-            clientSocket.pipe(upstreamSocket);
+            // Get any remaining data after headers (might be binary, e.g., TLS handshake)
+            const remainingData = responseBuffer.subarray(headerEndIndex + 4);
 
-            // If there was data after the upstream headers, pass it to client
-            const remaining = responseBuffer.substring(headerEnd + 4);
-            if (remaining.length > 0) {
-              clientSocket.write(remaining);
+            // If there's data after the upstream headers, write it to client BEFORE piping
+            if (remainingData.length > 0) {
+              clientSocket.write(remainingData);
             }
 
-            // If there was data after the client's CONNECT headers, pass it to upstream
+            // If there was data after the client's CONNECT headers, write it to upstream BEFORE piping
             if (head && head.length > 0) {
               upstreamSocket.write(head);
             }
+
+            // NOW set up bidirectional piping for all future data
+            upstreamSocket.pipe(clientSocket);
+            clientSocket.pipe(upstreamSocket);
           } else {
             // Always log tunnel failures
             console.error(`[tunnel] ✗ ${targetHost}:${targetPort} - ${statusCode}`);
