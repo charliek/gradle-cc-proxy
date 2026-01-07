@@ -76,7 +76,7 @@ Add to your project's startup hook:
 
 The proxy starts in the background and all Gradle builds will use it automatically via `~/.gradle/gradle.properties`.
 
-For a complete guide on setting up Claude Code remote environments for JVM/Gradle projects, including session hooks, SDKMAN, and this proxy, see:
+For a complete guide on setting up Claude Code remote environments for JVM/Gradle projects, including session hooks and this proxy, see:
 
 **[Claude Code Remote Setup Guide](docs/claude-remote-setup-guide.md)**
 
@@ -200,20 +200,17 @@ curl -v -x http://localhost:8899 https://plugins.gradle.org/
 If Gradle is using the wrong Java version:
 
 ```bash
-# Check Java environment configuration
-./scripts/check-java-env.sh
+# Check current Java version
+java -version
+
+# Check JAVA_HOME
+echo $JAVA_HOME
+
+# Verify Java toolchain
+cd test-build && ./gradlew -version
 ```
 
-The script will show:
-- Current JAVA_HOME setting
-- Java version in use
-- Expected version from .sdkmanrc
-- Which Java Gradle will use
-
-To fix Java environment issues in Claude Code remote environments:
-1. Ensure `.sdkmanrc` specifies the correct Java version
-2. Check `.claude/settings.json` has JAVA_HOME configured
-3. Verify the session hook exports JAVA_HOME correctly
+The Claude Code remote environment uses the system-provided OpenJDK. If you need a different Java version, you can install it manually or modify the container image.
 
 ## Security
 
@@ -238,8 +235,7 @@ gradle-cc-proxy/
 │   ├── install.sh         # One-time setup
 │   ├── start-proxy.sh     # Background startup
 │   ├── stop-proxy.sh      # Stop the proxy
-│   ├── verify.sh          # Verification test
-│   └── check-java-env.sh  # Verify Java environment
+│   └── verify.sh          # Verification test
 ├── .claude/
 │   ├── settings.json      # Claude Code configuration
 │   └── hooks/

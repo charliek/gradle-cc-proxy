@@ -4,8 +4,7 @@ This guide documents a pattern for setting up Claude Code remote environments fo
 
 1. The two-file configuration pattern (settings.json + session hook)
 2. Installing and configuring gradle-cc-proxy for Gradle builds
-3. Managing JVM versions with SDKMAN
-4. Best practices for timeouts and error handling
+3. Best practices for timeouts and error handling
 
 ## Overview
 
@@ -15,7 +14,7 @@ Claude Code remote environments start fresh each session. To ensure a consistent
 2. **`.claude/hooks/claude-remote-session-hook.sh`** - Bootstraps the environment on session start
 
 The hook script is organized into two phases:
-- **Phase 1: Core Development Tools** - Tools Claude needs (gh, bun, SDKMAN, Java)
+- **Phase 1: Core Development Tools** - Tools Claude needs (gh, bun, etc.)
 - **Phase 2: Project Infrastructure** - Project-specific setup (dependencies, services, proxy)
 
 ## Quick Start
@@ -40,9 +39,8 @@ For a JVM/Gradle project, create these two files:
     ]
   },
   "env": {
-    "PATH": "$HOME/.local/bin:$HOME/.bun/bin:$HOME/.sdkman/candidates/java/current/bin:$PATH",
-    "BUN_VERSION": "1.3.4",
-    "JAVA_HOME": "$HOME/.sdkman/candidates/java/current"
+    "PATH": "$HOME/.local/bin:$HOME/.bun/bin:$PATH",
+    "BUN_VERSION": "1.3.4"
   }
 }
 ```
@@ -50,12 +48,6 @@ For a JVM/Gradle project, create these two files:
 ### `.claude/hooks/claude-remote-session-hook.sh`
 
 See the [Template Script](#template-session-hook-script) section below for a complete example.
-
-### `.sdkmanrc`
-
-```
-java=21.0.9-amzn
-```
 
 ## Installing gradle-cc-proxy
 
@@ -107,7 +99,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 # Ensure standard system paths are in PATH
-export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.sdkman/candidates/java/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 # Store the project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -184,44 +176,6 @@ else
     fi
 fi
 
-# -----------------------------------------------------------------------------
-# SDKMAN Setup
-# -----------------------------------------------------------------------------
-if [ ! -d "$HOME/.sdkman" ]; then
-    echo "Installing SDKMAN..."
-    curl -fsSL --connect-timeout 10 --max-time 60 "https://get.sdkman.io?rcupdate=false" | bash > /dev/null 2>&1
-    echo "SDKMAN installed"
-fi
-
-# Source SDKMAN
-if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
-    export SDKMAN_DIR="$HOME/.sdkman"
-    # Temporarily disable unbound variable check for SDKMAN init
-    # SDKMAN's init script checks variables that may not be set yet
-    set +u
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
-    set -u
-fi
-
-# -----------------------------------------------------------------------------
-# Java Setup via SDKMAN
-# -----------------------------------------------------------------------------
-if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
-    JAVA_VERSION=$(grep "^java=" "$PROJECT_ROOT/.sdkmanrc" | cut -d'=' -f2)
-    if [ -n "$JAVA_VERSION" ]; then
-        if ! sdk list java 2>/dev/null | grep -q "$JAVA_VERSION.*installed"; then
-            echo "Installing Java $JAVA_VERSION..."
-            timeout 120 sdk install java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
-        fi
-        sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
-
-        # Ensure JAVA_HOME is set and exported for Gradle
-        if [ -d "$HOME/.sdkman/candidates/java/$JAVA_VERSION" ]; then
-            export JAVA_HOME="$HOME/.sdkman/candidates/java/$JAVA_VERSION"
-            export PATH="$JAVA_HOME/bin:$PATH"
-        fi
-    fi
-fi
 
 # =============================================================================
 # PHASE 2: Project Infrastructure
@@ -270,27 +224,7 @@ All network operations should have timeouts to fail fast:
 |-----------|-------------------|
 | curl downloads | `--connect-timeout 10 --max-time 60` |
 | Package installs | `timeout 60 <command>` |
-| SDK installs | `timeout 120 sdk install ...` |
 | Service health checks | 5-10 seconds |
-
-## SDKMAN + .sdkmanrc Pattern
-
-SDKMAN provides reproducible JVM environments via `.sdkmanrc`:
-
-```
-# .sdkmanrc
-java=21.0.9-amzn
-```
-
-The session hook reads this file and installs/activates the specified version.
-
-Available distributions:
-- `amzn` - Amazon Corretto
-- `tem` - Eclipse Temurin
-- `graal` - GraalVM
-- `zulu` - Azul Zulu
-
-Find versions with: `sdk list java`
 
 ## Gradle Wrapper Pattern
 
@@ -385,29 +319,6 @@ fi
 3. Verify Gradle properties:
    ```bash
    cat ~/.gradle/gradle.properties | grep proxy
-   ```
-
-### SDKMAN Not Finding Java
-
-1. Ensure SDKMAN is sourced:
-   ```bash
-   source "$HOME/.sdkman/bin/sdkman-init.sh"
-   ```
-
-2. Check available versions:
-   ```bash
-   sdk list java | grep installed
-   ```
-
-3. If you see "unbound variable" errors with `set -u`:
-   - The SDKMAN init script checks variables that may not be set
-   - Temporarily disable `-u` when sourcing: `set +u; source sdkman-init.sh; set -u`
-   - This is handled automatically in the template script above
-
-4. Verify JAVA_HOME is set after SDK activation:
-   ```bash
-   echo $JAVA_HOME
-   which java
    ```
 
 ### Hook Not Running

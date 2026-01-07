@@ -36,7 +36,6 @@ bun run ci
 # Installation and verification scripts
 ./scripts/install.sh       # Configure ~/.gradle/gradle.properties
 ./scripts/verify.sh        # Run test Gradle build
-./scripts/check-java-env.sh  # Verify Java environment configuration
 ```
 
 ## Architecture
