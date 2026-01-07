@@ -40,8 +40,9 @@ For a JVM/Gradle project, create these two files:
     ]
   },
   "env": {
-    "PATH": "$HOME/.local/bin:$HOME/.bun/bin:$PATH",
-    "BUN_VERSION": "1.3.4"
+    "PATH": "$HOME/.local/bin:$HOME/.bun/bin:$HOME/.sdkman/candidates/java/current/bin:$PATH",
+    "BUN_VERSION": "1.3.4",
+    "JAVA_HOME": "$HOME/.sdkman/candidates/java/current"
   }
 }
 ```
@@ -195,7 +196,11 @@ fi
 # Source SDKMAN
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     export SDKMAN_DIR="$HOME/.sdkman"
+    # Temporarily disable unbound variable check for SDKMAN init
+    # SDKMAN's init script checks variables that may not be set yet
+    set +u
     source "$HOME/.sdkman/bin/sdkman-init.sh"
+    set -u
 fi
 
 # -----------------------------------------------------------------------------
@@ -209,6 +214,12 @@ if [ -f "$PROJECT_ROOT/.sdkmanrc" ] && command -v sdk > /dev/null 2>&1; then
             timeout 120 sdk install java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
         fi
         sdk use java "$JAVA_VERSION" < /dev/null > /dev/null 2>&1 || true
+
+        # Ensure JAVA_HOME is set and exported for Gradle
+        if [ -d "$HOME/.sdkman/candidates/java/$JAVA_VERSION" ]; then
+            export JAVA_HOME="$HOME/.sdkman/candidates/java/$JAVA_VERSION"
+            export PATH="$JAVA_HOME/bin:$PATH"
+        fi
     fi
 fi
 
@@ -386,6 +397,17 @@ fi
 2. Check available versions:
    ```bash
    sdk list java | grep installed
+   ```
+
+3. If you see "unbound variable" errors with `set -u`:
+   - The SDKMAN init script checks variables that may not be set
+   - Temporarily disable `-u` when sourcing: `set +u; source sdkman-init.sh; set -u`
+   - This is handled automatically in the template script above
+
+4. Verify JAVA_HOME is set after SDK activation:
+   ```bash
+   echo $JAVA_HOME
+   which java
    ```
 
 ### Hook Not Running

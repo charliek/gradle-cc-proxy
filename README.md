@@ -195,6 +195,26 @@ The upstream proxy might be unreachable. Test with curl:
 curl -v -x http://localhost:8899 https://plugins.gradle.org/
 ```
 
+### Java Environment Issues
+
+If Gradle is using the wrong Java version:
+
+```bash
+# Check Java environment configuration
+./scripts/check-java-env.sh
+```
+
+The script will show:
+- Current JAVA_HOME setting
+- Java version in use
+- Expected version from .sdkmanrc
+- Which Java Gradle will use
+
+To fix Java environment issues in Claude Code remote environments:
+1. Ensure `.sdkmanrc` specifies the correct Java version
+2. Check `.claude/settings.json` has JAVA_HOME configured
+3. Verify the session hook exports JAVA_HOME correctly
+
 ## Security
 
 - Binds only to `127.0.0.1` (never exposed on network)
@@ -218,7 +238,8 @@ gradle-cc-proxy/
 │   ├── install.sh         # One-time setup
 │   ├── start-proxy.sh     # Background startup
 │   ├── stop-proxy.sh      # Stop the proxy
-│   └── verify.sh          # Verification test
+│   ├── verify.sh          # Verification test
+│   └── check-java-env.sh  # Verify Java environment
 ├── .claude/
 │   ├── settings.json      # Claude Code configuration
 │   └── hooks/
