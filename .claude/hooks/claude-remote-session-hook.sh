@@ -187,6 +187,46 @@ if command -v bun > /dev/null 2>&1; then
     fi
 fi
 
+# -----------------------------------------------------------------------------
+# Gradle Proxy Configuration
+# -----------------------------------------------------------------------------
+# Configure Gradle to use the local proxy adapter when testing
+
+# Set up ~/.gradle/gradle.properties
+if [ ! -f "$HOME/.gradle/gradle.properties" ] || ! grep -q "systemProp.http.proxyHost=localhost" "$HOME/.gradle/gradle.properties" 2>/dev/null; then
+    echo "Configuring Gradle proxy settings..."
+    mkdir -p "$HOME/.gradle"
+
+    # Backup existing file if it exists
+    if [ -f "$HOME/.gradle/gradle.properties" ]; then
+        cp "$HOME/.gradle/gradle.properties" "$HOME/.gradle/gradle.properties.backup" 2>/dev/null || true
+    fi
+
+    # Append proxy settings
+    cat >> "$HOME/.gradle/gradle.properties" << 'EOF'
+
+# Gradle Proxy Adapter settings (added by gradle-cc-proxy)
+systemProp.http.proxyHost=localhost
+systemProp.http.proxyPort=8899
+systemProp.https.proxyHost=localhost
+systemProp.https.proxyPort=8899
+systemProp.http.nonProxyHosts=localhost|127.0.0.1
+EOF
+    echo "Gradle proxy settings configured"
+fi
+
+# Set environment variables to use local proxy for Gradle wrapper
+# Save the original upstream proxy for the proxy adapter to use
+# Use GLOBAL_AGENT variables if HTTP_PROXY not set (common in Claude Code environment)
+export UPSTREAM_HTTP_PROXY="${HTTP_PROXY:-${GLOBAL_AGENT_HTTP_PROXY:-}}"
+export UPSTREAM_HTTPS_PROXY="${HTTPS_PROXY:-${GLOBAL_AGENT_HTTPS_PROXY:-}}"
+
+# Point environment to local proxy adapter for Gradle
+export http_proxy="http://localhost:8899"
+export https_proxy="http://localhost:8899"
+export HTTP_PROXY="http://localhost:8899"
+export HTTPS_PROXY="http://localhost:8899"
+
 echo "Claude Code remote environment setup complete"
 echo ""
 echo "NOTE: This is the gradle-cc-proxy project itself."

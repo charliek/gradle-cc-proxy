@@ -109,6 +109,10 @@ describe("loadConfig", () => {
     process.env.http_proxy = undefined;
     process.env.HTTPS_PROXY = undefined;
     process.env.https_proxy = undefined;
+    process.env.UPSTREAM_HTTP_PROXY = undefined;
+    process.env.UPSTREAM_HTTPS_PROXY = undefined;
+    process.env.GLOBAL_AGENT_HTTP_PROXY = undefined;
+    process.env.GLOBAL_AGENT_HTTPS_PROXY = undefined;
     process.env.PROXY_LOCAL_PORT = undefined;
     process.env.VERBOSE = undefined;
   });
