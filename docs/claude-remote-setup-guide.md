@@ -69,14 +69,30 @@ This configures `~/.gradle/gradle.properties` with proxy settings that route all
 
 ### Starting the Proxy
 
-Add this to your session hook's Phase 2:
+Add this to your session hook's Phase 2 (see template below for full context):
 
 ```bash
+# Set environment variables to use local proxy for Gradle wrapper
+# Save the original upstream proxy for the proxy adapter to use
+export UPSTREAM_HTTP_PROXY="${HTTP_PROXY:-${GLOBAL_AGENT_HTTP_PROXY:-}}"
+export UPSTREAM_HTTPS_PROXY="${HTTPS_PROXY:-${GLOBAL_AGENT_HTTPS_PROXY:-}}"
+
+# Point environment to local proxy adapter for Gradle
+export http_proxy="http://localhost:8899"
+export https_proxy="http://localhost:8899"
+export HTTP_PROXY="http://localhost:8899"
+export HTTPS_PROXY="http://localhost:8899"
+
 # Start gradle-cc-proxy if installed
 if [ -x "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh" ]; then
     "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh"
 fi
 ```
+
+This configuration:
+1. Preserves the upstream proxy URL in `UPSTREAM_HTTP_PROXY` for the proxy adapter to use
+2. Redirects all Gradle traffic (via environment variables) to localhost:8899
+3. The proxy adapter reads the upstream URL and handles JWT authentication
 
 ## Template Session Hook Script
 
@@ -200,6 +216,17 @@ if [ ! -d "$HOME/.local/gradle-cc-proxy" ]; then
         echo "WARNING: Failed to clone gradle-cc-proxy" >&2
     fi
 fi
+
+# Set environment variables to use local proxy for Gradle wrapper
+# Save the original upstream proxy for the proxy adapter to use
+export UPSTREAM_HTTP_PROXY="${HTTP_PROXY:-${GLOBAL_AGENT_HTTP_PROXY:-}}"
+export UPSTREAM_HTTPS_PROXY="${HTTPS_PROXY:-${GLOBAL_AGENT_HTTPS_PROXY:-}}"
+
+# Point environment to local proxy adapter for Gradle
+export http_proxy="http://localhost:8899"
+export https_proxy="http://localhost:8899"
+export HTTP_PROXY="http://localhost:8899"
+export HTTPS_PROXY="http://localhost:8899"
 
 # Start the proxy
 if [ -x "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh" ]; then

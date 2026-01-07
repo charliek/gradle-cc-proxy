@@ -49,7 +49,13 @@ export function parseProxyUrl(proxyUrl: string): {
  * Load configuration from environment variables.
  */
 export function loadConfig(): ProxyConfig {
+  // Check for upstream proxy first (set by session hook when HTTP_PROXY points to localhost)
+  // Then fall back to GLOBAL_AGENT variables or regular proxy environment variables
   const httpProxy =
+    process.env.UPSTREAM_HTTP_PROXY ||
+    process.env.UPSTREAM_HTTPS_PROXY ||
+    process.env.GLOBAL_AGENT_HTTP_PROXY ||
+    process.env.GLOBAL_AGENT_HTTPS_PROXY ||
     process.env.HTTP_PROXY ||
     process.env.http_proxy ||
     process.env.HTTPS_PROXY ||

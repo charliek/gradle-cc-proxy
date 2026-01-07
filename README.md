@@ -68,13 +68,32 @@ This runs a test Gradle build to confirm everything works.
 
 ### With Claude Code Startup Hook
 
-Add to your project's startup hook:
+The recommended way to use gradle-cc-proxy is to install it once with `./scripts/install.sh`, then configure your project's session hook to:
+
+1. Set environment variables to route traffic through localhost:8899
+2. Start the proxy adapter in the background
+
+Add this to your project's `.claude/hooks/claude-remote-session-hook.sh`:
 
 ```bash
-~/.local/gradle-cc-proxy/scripts/start-proxy.sh
+# Set environment variables to use local proxy for Gradle wrapper
+# Save the original upstream proxy for the proxy adapter to use
+export UPSTREAM_HTTP_PROXY="${HTTP_PROXY:-${GLOBAL_AGENT_HTTP_PROXY:-}}"
+export UPSTREAM_HTTPS_PROXY="${HTTPS_PROXY:-${GLOBAL_AGENT_HTTPS_PROXY:-}}"
+
+# Point environment to local proxy adapter for Gradle
+export http_proxy="http://localhost:8899"
+export https_proxy="http://localhost:8899"
+export HTTP_PROXY="http://localhost:8899"
+export HTTPS_PROXY="http://localhost:8899"
+
+# Start gradle-cc-proxy if installed
+if [ -x "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh" ]; then
+    "$HOME/.local/gradle-cc-proxy/scripts/start-proxy.sh"
+fi
 ```
 
-The proxy starts in the background and all Gradle builds will use it automatically via `~/.gradle/gradle.properties`.
+The proxy adapter reads from `UPSTREAM_HTTP_PROXY` or `GLOBAL_AGENT_HTTP_PROXY` to get the upstream proxy URL with JWT token, while Gradle uses the local proxy on port 8899.
 
 For a complete guide on setting up Claude Code remote environments for JVM/Gradle projects, including session hooks and this proxy, see:
 
@@ -99,10 +118,19 @@ cd ~/your-project
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `CLAUDE_CODE_REMOTE` | Must be `true` for proxy to run | Required |
-| `HTTP_PROXY` | Upstream proxy URL with JWT | Required |
-| `HTTPS_PROXY` | Alternative to HTTP_PROXY | - |
+| `UPSTREAM_HTTP_PROXY` | Upstream proxy URL with JWT (checked first) | - |
+| `UPSTREAM_HTTPS_PROXY` | Alternative to UPSTREAM_HTTP_PROXY | - |
+| `GLOBAL_AGENT_HTTP_PROXY` | Claude Code upstream proxy (fallback) | - |
+| `GLOBAL_AGENT_HTTPS_PROXY` | Claude Code upstream proxy (fallback) | - |
+| `HTTP_PROXY` | Standard proxy variable (lowest priority) | - |
+| `HTTPS_PROXY` | Standard proxy variable (lowest priority) | - |
 | `PROXY_LOCAL_PORT` | Local proxy port | 8899 |
 | `VERBOSE` | Enable verbose logging | false |
+
+The proxy checks for upstream proxy configuration in this order:
+1. `UPSTREAM_HTTP_PROXY` / `UPSTREAM_HTTPS_PROXY` (set by session hook)
+2. `GLOBAL_AGENT_HTTP_PROXY` / `GLOBAL_AGENT_HTTPS_PROXY` (Claude Code environment)
+3. `HTTP_PROXY` / `HTTPS_PROXY` (standard variables)
 
 ### Gradle Properties
 
